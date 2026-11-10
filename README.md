@@ -9,7 +9,7 @@ for adaptive routing in Software-Defined Networks.
 ## Status
 🚧 Work in progress, being built module by module.
 
-- [ ] Module 1: NSFNet topology in Mininet
+- [x] Module 1: NSFNet topology in Mininet
 - [ ] Module 2: Shortest-path baseline
 - [ ] Module 3: RL environment
 - [ ] Module 4: GAT encoder

@@ -16,7 +16,7 @@ loops (broadcast storm), and show how Spanning Tree (STP) avoids it, and at what
 - `mininet_env/build_network.py`: reads a topology file and builds it in Mininet.
   Two modes: basic controller (default) or Spanning Tree (`--stp`).
 
-## Key ideas (in my words)
+## Key ideas
 - **Topology vs. Mininet:** The topology is the "floor plan"; Mininet is the tool
   that builds it. We keep the topology in its own module because three parts need
   it (Mininet, the simulator, and the GAT model), so all three see the same network,
@@ -24,7 +24,7 @@ loops (broadcast storm), and show how Spanning Tree (STP) avoids it, and at what
 - **Why host links are unlimited:** Each host represents all users of a city. Each
   city has only one access link, so if that link were the bottleneck, no routing
   decision could help. Keeping access links unlimited makes sure congestion happens
-  only on the backbone, where alternative paths exist.
+  only on the backbone, where alternative paths exist, we only allow bottlenecks in places where routing has a choice.
 - **The loop problem / broadcast storm:** Some packets are broadcasts (e.g. ARP:
   "who has this IP address?"). A simple switch copies a broadcast out of every port
   except the one it came in on. In a topology with cycles, these copies travel
