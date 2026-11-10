@@ -4,6 +4,7 @@ Build a topology from topologies/ inside Mininet.
 Run from the project root:
     sudo python3 -m mininet_env.build_network          # basic controller (expect loops!)
     sudo python3 -m mininet_env.build_network --stp    # Spanning Tree, no controller
+    sudo python3 -m mininet_env.build_network --remote # connect to a controller you run separately
 """
 
 import argparse
@@ -12,12 +13,14 @@ import time
 from mininet.net import Mininet
 from mininet.topo import Topo
 from mininet.link import TCLink
-from mininet.node import OVSBridge
+from mininet.node import OVSBridge, OVSSwitch, RemoteController
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 
 from topologies import nsfnet
 from topologies.ports import HOST_PORT, build_port_map
+
+from functools import partial
 
 
 def switch_name(node):
@@ -65,10 +68,16 @@ def wait_for_stp(seconds):
 
 def main():
     parser = argparse.ArgumentParser(description="Build a topology in Mininet")
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--stp",
         action="store_true",
         help="use Spanning Tree switches instead of a controller",
+    )
+    mode.add_argument(
+        "--remote",
+        action="store_true",
+        help="connect switches to an external controller at 127.0.0.1:6653 (OpenFlow 1.3)",
     )
     args = parser.parse_args()
 
@@ -78,6 +87,14 @@ def main():
     if args.stp:
         # Standalone switches running Spanning Tree, no controller
         net = Mininet(topo=topo, link=TCLink, switch=OVSBridge, controller=None)
+    elif args.remote:
+        # Our own controller (e.g. controller.route_installer), running separately
+        net = Mininet(
+            topo=topo,
+            link=TCLink,
+            switch=partial(OVSSwitch, protocols="OpenFlow13"),
+            controller=partial(RemoteController, ip="127.0.0.1", port=6653),
+        )
     else:
         # Mininet's basic controller (a simple learning switch)
         net = Mininet(topo=topo, link=TCLink)
