@@ -17,6 +17,7 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 
 from topologies import nsfnet
+from topologies.ports import HOST_PORT, build_port_map
 
 
 def switch_name(node):
@@ -33,17 +34,23 @@ class TopologyFromData(Topo):
     """Turns a topology data file (like nsfnet.py) into a Mininet network."""
 
     def build(self, topo_module, stp=False):
-        # One switch + one host per node, connected by an unlimited access link
+        port_map = build_port_map(topo_module.LINKS)
+
+        # One switch + one host per node, connected by an unlimited access link.
+        # The host plugs into port HOST_PORT (1) on its switch.
         for node in range(topo_module.NUM_NODES):
             self.addSwitch(switch_name(node), stp=stp)
             self.addHost(host_name(node))
-            self.addLink(host_name(node), switch_name(node))
+            self.addLink(host_name(node), switch_name(node), port2=HOST_PORT)
 
-        # The real network: switch-to-switch links with bandwidth and delay
+        # The real network: switch-to-switch links with bandwidth and delay,
+        # using exactly the port numbers from the port map.
         for a, b in topo_module.LINKS:
             self.addLink(
                 switch_name(a),
                 switch_name(b),
+                port1=port_map[(a, b)],   # port on a's switch leading to b
+                port2=port_map[(b, a)],   # port on b's switch leading to a
                 bw=topo_module.LINK_BW_MBPS,
                 delay=f"{topo_module.LINK_DELAY_MS}ms",
             )
