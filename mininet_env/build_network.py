@@ -56,6 +56,7 @@ class TopologyFromData(Topo):
                 port2=port_map[(b, a)],   # port on b's switch leading to a
                 bw=topo_module.LINK_BW_MBPS,
                 delay=f"{topo_module.LINK_DELAY_MS}ms",
+                max_queue_size=topo_module.LINK_QUEUE_PKTS,
             )
 
 def wait_for_stp(seconds):

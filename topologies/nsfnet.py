@@ -32,7 +32,8 @@ LINKS = [
 # Default link properties (same for every link, for now).
 LINK_BW_MBPS = 10      # bandwidth in Mbit/s
 LINK_DELAY_MS = 10     # one-way propagation delay in ms
-
+LINK_QUEUE_PKTS = 100  # max packets queued per link direction
+                       # ~1 bandwidth-delay product: 10 Mbps x 100 ms = 125 KB = ~83 packets
 
 def neighbours(node):
     """Return the sorted list of nodes directly connected to `node`."""
