@@ -10,7 +10,7 @@ for adaptive routing in Software-Defined Networks.
 🚧 Work in progress, being built module by module.
 
 - [x] Module 1: NSFNet topology in Mininet
-- [ ] Module 2: Shortest-path baseline
+- [x] Module 2: Shortest-path baseline
 - [ ] Module 3: RL environment
 - [ ] Module 4: GAT encoder
 - [ ] Module 5: DQN agent + training
