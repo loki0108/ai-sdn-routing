@@ -92,7 +92,7 @@ roughly one **bandwidth–delay product**:
   - Terminal 2: `sudo python3 -m mininet_env.build_network --remote`
 - Rules installed: **1,144** in total (572 forwarding steps × 2 for IPv4 + ARP),
   exactly as predicted by `routing.py`
-- `pingall`: 0% dropped (182/182), with no 40 s STP wait
+- `pingall`: 0% dropped (182/182); the network is usable immediately (no 40 s STP wait)
 - h1 → h14: **60 ms every run** (path s1 → s3 → s6 → s14)
 - Rules per switch vary widely: s6 has 124, s12 has 52. Shortest path funnels
   many routes through central switches.
@@ -100,10 +100,13 @@ roughly one **bandwidth–delay product**:
 | | STP (Module 1) | Shortest-path controller |
 |---|---|---|
 | Reachability | 182/182 | 182/182 |
-| Startup wait | 40 s | none |
+| Time until network usable | 40 s (STP must settle) | immediate |
 | h1 → h14 | 60 or 100 ms (depends on random root) | 60 ms, deterministic |
 | Links usable | 13 of 21 | all 21 |
 | Flooding | yes (inside the tree) | none |
+
+Note: `pingall` before measuring is a **warm-up** (fills ARP caches so the first
+measured ping is not slowed by ARP), not a requirement for the network to work.
 
 ## Experiment B: Link usage under shortest-path routing
 - Command: `python -m experiments.link_usage`
@@ -118,7 +121,7 @@ roughly one **bandwidth–delay product**:
 ## Experiment C: Congesting the bottleneck (s3 → s6)
 - Flows chosen so they share **only** the s3 → s6 link:
   h1 → h14 (s1→s3→s6→s14), h2 → h13 (s2→s3→s6→s13), h3 → h6 (s3→s6)
-- Traffic: UDP, 5 Mbps per flow for 60 s → 15 Mbps into a 10 Mbps link
+- Traffic: UDP, 5 Mbps per flow (target) for 60 s → 15 Mbps into a 10 Mbps link
 - UDP because it sends at a fixed rate (TCP slows down and hides congestion),
   which also makes runs repeatable
 - Procedure: warm up (`pingall`) → idle ping → start UDP receivers → start senders
@@ -131,33 +134,39 @@ roughly one **bandwidth–delay product**:
 | Ping loss | 0% | 60% (only 20 pings, small sample) |
 | Queue at s3 → s6 | — | full (backlog 100 of 100 packets) |
 
-| Flow | Sent | Received | Loss |
-|---|---|---|---|
-| h1 → h14 | 5 Mbps | 5.10 Mbps | 2.5% |
-| h2 → h13 | 5 Mbps | 3.08 Mbps | 41% |
-| h3 → h6 | 5 Mbps | 1.60 Mbps | 70% |
-| **Total** | 15 Mbps | **9.78 Mbps** | **35%** |
+| Flow | Sent (target) | Received | Lost / sent datagrams | Loss |
+|---|---|---|---|---|
+| h1 → h14 | 5 Mbps | 5.10 Mbps | 672 / 26,753 | 2.5% |
+| h2 → h13 | 5 Mbps | 3.08 Mbps | 11,016 / 26,753 | 41% |
+| h3 → h6 | 5 Mbps | 1.60 Mbps | 18,599 / 26,753 | 70% |
+| **Total** | 15 Mbps (≈15.7 actual) | **9.78 Mbps** | **30,287 / 80,259** | **37.7%** |
 
 - Total delivered ≈ link capacity (10 Mbps): the link was full.
-- Overall loss 35% ≈ the excess traffic (15 in, 10 out).
+- Overall loss 37.7% ≈ the excess traffic (≈15.7 Mbps sent, ~10 Mbps capacity).
+  iperf sends slightly above its target: 26,753 datagrams × 1,470 bytes in 60 s
+  ≈ 5.2 Mbps per flow.
 - Loss was **uneven** between flows and changed completely between runs:
   under congestion, who suffers is essentially random.
-- Packet accounting at s3-eth4: delivered + dropped = all packets sent, so all loss
-  happened at the targeted bottleneck.
+- Packet accounting (1,000-packet-queue run, `tc` counters read after the load ended):
+  delivered (52,135) + dropped (28,540) ≈ all packets sent, so all loss happened at
+  the targeted bottleneck.
 
 ### Effect of queue size (same experiment)
 | Queue limit | Loaded delay | Overall loss |
 |---|---|---|
-| 1,000 packets (Mininet default) | 1,258 ms | 35% |
-| 100 packets (≈ 1 BDP, used from now on) | 171 ms | 35% |
+| 1,000 packets (Mininet default) | 1,258 ms | 35.6% |
+| 100 packets (≈ 1 BDP, used from now on) | 171 ms | 37.7% |
 
-Queue size changes **how long** packets wait, not **how many** fit through.
+Queue size mainly changes **how long** packets wait (1,258 → 171 ms); loss changes
+only slightly (35.6% → 37.7%), since a smaller queue absorbs fewer bursts.
 
-## Limitations (honest notes)
+## Limitations
 - Experiment C numbers are from **single manual runs**; runs vary (one early run
   showed no delay increase, probably a timing issue). An automated script with
   repeated runs and averages is needed before comparing against the AI.
 - The ping used only 20 probes, which is too few for a reliable loss estimate.
+- Counters must be read **after** the load ends; one `tc` snapshot in the
+  100-packet run was taken at ~57 s and missed the final drops.
 - The topology is hard-coded (`from topologies import nsfnet`) in the controller.
 - No link-failure detection yet (needed for robustness tests later).
 - Each cable has 10 Mbps per direction; `link_usage.py` counts both directions together.
@@ -167,10 +176,7 @@ Queue size changes **how long** packets wait, not **how many** fit through.
   storm, no STP detours, all links usable, deterministic shortest paths.
 - But shortest-path routing **ignores load**: it loads its busiest links 4.7× more
   than its quietest and keeps sending traffic into a full link.
-- Under congestion: delay nearly triples (60 → 171 ms), 35% of traffic is lost,
+- Under congestion: delay nearly triples (60 → 171 ms), 37.7% of traffic is lost,
   and loss is distributed unfairly and unpredictably.
 - Alternative paths exist, but shortest path never uses them. Choosing paths based
-  on the current network state is the job of the AI (GAT + RL).
-
-## Open questions
-- (add anything still unclear here)
+  on the current network state is the job of the AI (GNN + RL).
