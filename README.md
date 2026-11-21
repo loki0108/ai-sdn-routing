@@ -12,7 +12,7 @@ Software-Defined Networks, using a routing-aligned path encoder (TRIAD) and PPO.
 - [x] Module 1: NSFNet topology in Mininet
 - [x] Module 2: Shortest-path SDN controller (baseline)
 - [x] Module 3: Flow-level simulator (validated against Mininet)
-- [ ] Module 4: Candidate paths, traffic generator, greedy baseline
+- [x] Module 4: Candidate paths, traffic generator, greedy baseline
 - [ ] Module 5: TRIAD encoder (sum / min / product path readout)
 - [ ] Module 6: PPO training
 - [ ] Module 7: Mininet replay and evaluation
