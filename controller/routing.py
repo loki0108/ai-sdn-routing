@@ -9,7 +9,7 @@ without touching anything else.
 import networkx as nx
 
 from topologies.ports import HOST_PORT, build_port_map
-
+from itertools import islice
 
 def build_graph(topo_module):
     """Turn a topology data file into a NetworkX graph."""
@@ -23,6 +23,33 @@ def shortest_path(graph, src, dst):
     """Baseline path choice: fewest links (all links are equal, so this is BFS)."""
     return nx.shortest_path(graph, src, dst)
 
+def k_shortest_paths(graph, src, dst, k=4):
+    """
+    Up to k loop-free candidate paths from src to dst, shortest first.
+
+    Candidate 0 is always exactly the Module 2 baseline path (shortest_path),
+    so "every flow on candidate 0" reproduces the shortest-path controller.
+    """
+    first = shortest_path(graph, src, dst)
+    paths = [first]
+    # Yen's algorithm: shortest, next-shortest, ... (no repeated nodes)
+    for path in islice(nx.shortest_simple_paths(graph, src, dst), k + 1):
+        if len(paths) == k:
+            break
+        if path != first:
+            paths.append(path)
+    return paths
+
+
+def all_candidates(topo_module, k=4):
+    """Candidate paths for every (src, dst) pair: dict (src, dst) -> list of paths."""
+    graph = build_graph(topo_module)
+    return {
+        (src, dst): k_shortest_paths(graph, src, dst, k)
+        for src in graph.nodes
+        for dst in graph.nodes
+        if src != dst
+    }
 
 def path_to_hops(path, port_map):
     """
@@ -69,10 +96,12 @@ if __name__ == "__main__":
     routes = compute_all_routes(nsfnet)
     print(f"{len(routes)} routes computed")
 
-    hops = routes[(0, 13)]
-    print("h1 -> h14 path:", " -> ".join(f"s{node + 1}" for node, _ in hops))
-    for node, port in hops:
-        print(f"  on s{node + 1}: send out port {port}")
+    candidates = all_candidates(nsfnet, k=4)
+    for src, dst in [(0, 13), (1, 12)]:
+        print(f"\nCandidates h{src + 1} -> h{dst + 1}:")
+        for i, path in enumerate(candidates[(src, dst)]):
+            route = " -> ".join(f"s{n + 1}" for n in path)
+            print(f"  {i}: {route}  ({len(path) - 1} links)")
 
-    total_steps = sum(len(h) for h in routes.values())
-    print(f"forwarding steps across all routes: {total_steps}")
+    counts = [len(c) for c in candidates.values()]
+    print(f"\npairs: {len(candidates)}, candidates per pair: min {min(counts)}, max {max(counts)}")

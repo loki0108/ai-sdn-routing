@@ -3,15 +3,16 @@
 M.Tech Project (MTP), IIT Bhubaneswar  
 Guide: Prof. Manoranjan Satpathy
 
-A hybrid Graph Neural Network (GAT) + Deep Reinforcement Learning approach
-for adaptive routing in Software-Defined Networks.
+A Graph Neural Network + Reinforcement Learning approach to adaptive routing in
+Software-Defined Networks, using a routing-aligned path encoder (TRIAD) and PPO.
 
 ## Status
 🚧 Work in progress, being built module by module.
 
 - [x] Module 1: NSFNet topology in Mininet
-- [x] Module 2: Shortest-path baseline
-- [ ] Module 3: RL environment
-- [ ] Module 4: GAT encoder
-- [ ] Module 5: DQN agent + training
-- [ ] Module 6: Robustness evaluation
+- [x] Module 2: Shortest-path SDN controller (baseline)
+- [x] Module 3: Flow-level simulator (validated against Mininet)
+- [ ] Module 4: Candidate paths, traffic generator, greedy baseline
+- [ ] Module 5: TRIAD encoder (sum / min / product path readout)
+- [ ] Module 6: PPO training
+- [ ] Module 7: Mininet replay and evaluation
