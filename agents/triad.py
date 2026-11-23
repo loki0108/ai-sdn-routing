@@ -48,18 +48,20 @@ def path_index(paths, link_pos):
             mask[i, j] = True
     return idx, mask
 
+def combine_along_paths(add, low, mul, mask):
+    """
+    Combine per-entry values along each path. All inputs are [num_paths, max_links]:
+      a = SUM of add, b = MIN of low, m = SUM of mul (logs, so a PRODUCT)
+    """
+    a = (add * mask).sum(dim=1)                                    # padding adds 0
+    b = low.masked_fill(~mask, float("inf")).min(dim=1).values     # padding never wins
+    m = (mul * mask).sum(dim=1)
+    return a, b, m
+
 
 def readout(add, low, mul, idx, mask):
-    """
-    The heart of TRIAD: combine per-link values along every path at once.
-      a = SUM of add
-      b = MIN of low
-      m = SUM of mul  (mul holds logs, so this is a PRODUCT in disguise)
-    """
-    a = (add[idx] * mask).sum(dim=1)                                   # padding adds 0
-    b = low[idx].masked_fill(~mask, float("inf")).min(dim=1).values    # padding never wins
-    m = (mul[idx] * mask).sum(dim=1)
-    return a, b, m
+    """Per-LINK values -> look up each path's links, then combine along paths."""
+    return combine_along_paths(add[idx], low[idx], mul[idx], mask)
 
 
 class TriadEncoder(nn.Module):
@@ -76,6 +78,18 @@ class TriadEncoder(nn.Module):
         low = self.f_min(h).squeeze(-1)
         mul = F.logsigmoid(self.f_mul(h)).squeeze(-1)   # log of a value in (0, 1)
         a, b, m = readout(add, low, mul, idx, mask)
+        return self.combine(torch.stack([a, b, m], dim=1)).squeeze(-1)
+
+    def score_entries(self, feats, mask):
+        """
+        Features per (path, link) entry, shape [num_paths, max_links, NUM_FEATURES]
+        -> one score per path. Used by the RL agent, where each candidate is judged
+        on the loads it would see IF its flow moved there.
+        """
+        add = self.f_add(feats).squeeze(-1)                 # [num_paths, max_links]
+        low = self.f_min(feats).squeeze(-1)
+        mul = F.logsigmoid(self.f_mul(feats)).squeeze(-1)
+        a, b, m = combine_along_paths(add, low, mul, mask)
         return self.combine(torch.stack([a, b, m], dim=1)).squeeze(-1)
 
 
