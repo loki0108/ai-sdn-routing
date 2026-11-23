@@ -7,6 +7,7 @@ without touching anything else.
 """
 
 import networkx as nx
+import json
 
 from topologies.ports import HOST_PORT, build_port_map
 from itertools import islice
@@ -50,6 +51,29 @@ def all_candidates(topo_module, k=4):
         for dst in graph.nodes
         if src != dst
     }
+
+def load_route_plan(path):
+    """Read a route plan file -> dict (src, dst) -> list of nodes."""
+    with open(path) as f:
+        data = json.load(f)
+    return {tuple(int(n) for n in key.split("-")): nodes
+            for key, nodes in data["paths"].items()}
+
+
+def plan_chooser(plan):
+    """
+    Build a choose_path function: follow the plan where it has a path,
+    shortest path everywhere else. Checks every planned path is real.
+    """
+    def choose(graph, src, dst):
+        if (src, dst) not in plan:
+            return shortest_path(graph, src, dst)
+        path = plan[(src, dst)]
+        assert path[0] == src and path[-1] == dst, f"plan path {path} has wrong endpoints"
+        assert all(graph.has_edge(a, b) for a, b in zip(path, path[1:])), \
+            f"plan path {path} uses a link that does not exist"
+        return path
+    return choose
 
 def path_to_hops(path, port_map):
     """
