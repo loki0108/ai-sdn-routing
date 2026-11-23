@@ -74,4 +74,3 @@ needed by h2 → h13: a per-flow rule falls into the coordination trap. The RL p
 ## Limitations
 - No message passing between links yet (link features already include current
   load); whether adding it helps is a later experiment
-- Novelty rests on one literature search; to be confirmed on Google Scholar
